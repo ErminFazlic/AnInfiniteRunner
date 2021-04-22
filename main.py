@@ -61,9 +61,11 @@ def collision_check_dummies(dummies):
         if slashing:
             if 135 < dummy_rect.centerx < 140 and ninja_rectangle.bottom > 490:
                 dummies.remove(dummy_rect)
+                dummy_slash_sound.play()
                 return False
         if dummy_rect.centerx < 140 and dummy_rect.centerx > 90:
             if ninja_rectangle.bottom > 520:
+                hit_sound.play()
                 return True
     else:
          return False
@@ -73,10 +75,9 @@ def collision_check_chains(chains):
     for chain_rect in chains:
         if 120 < chain_rect.centerx <= 130:
             if sliding:
-                print('check')
                 return False
             else:
-                print('chain')
+                hit_sound.play()
                 return True
 
 def collision_coins(coinslist, coinsIn):
@@ -84,6 +85,7 @@ def collision_coins(coinslist, coinsIn):
         if 90 < coin_rect.centerx < 140:
             if coin_rect.centery < ninja_rectangle.centery + 25 and coin_rect.centery > ninja_rectangle.centery - 25:
                 coinsIn += 1
+                coin_sound.play()
                 coinslist.remove(coin_rect)
     return coinslist, coinsIn
 
@@ -94,6 +96,7 @@ def collision_check_birds(birds):
             if sliding:
                 y_slide = 0
             if bird_rect.centery < ninja_rectangle.centery + 25 and bird_rect.centery > ninja_rectangle.centery - y_slide:
+                hit_sound.play()
                 return True
     return False
 def ninja_animation():
@@ -155,6 +158,14 @@ def load_hi_score():
     file = open('hi_score.bin', 'rb')
     s = int.from_bytes(file.read(1), byteorder='big')
     return s
+
+def display_game_over():
+    game_over_surface1 = game_font.render('Press Space To', False, (255, 255, 255))
+    game_over_rectangle1 = game_over_surface1.get_rect(center=(540, 420))
+    screen.blit(game_over_surface1, game_over_rectangle1)
+    game_over_surface2 = game_font.render('Play Again', False, (255, 255, 255))
+    game_over_rectangle2 = game_over_surface2.get_rect(center=(540, 500))
+    screen.blit(game_over_surface2, game_over_rectangle2)
 
 py.init()
 
@@ -232,6 +243,10 @@ chain_list = []
 JUMPGESTURE = py.USEREVENT + 2
 jump_gesture_event = py.event.Event(JUMPGESTURE, message='jump')
 
+hit_sound = py.mixer.Sound('sounds/hit.wav')
+jump_sound = py.mixer.Sound('sounds/jump.wav')
+dummy_slash_sound = py.mixer.Sound('sounds/dummyslash.wav')
+coin_sound = py.mixer.Sound('sounds/coin.wav')
 
 game_font = py.font.Font('slkscr.ttf', 80)
 
@@ -248,7 +263,7 @@ slash_cooldown = py.time.get_ticks()
 slide_cooldown = py.time.get_ticks()
 
 capture = cv2.VideoCapture(0)
-detector = htm.Hand()
+detector = htm.Hand(maxHands=1)
 
 score_surface = game_font.render(str(current_score), False, (255, 255, 255))
 
@@ -262,6 +277,7 @@ while True:
             if event.type == JUMPGESTURE or event.key == py.K_SPACE:
                 if ninja_rectangle.centery == 525:
                     jumping = True
+                    jump_sound.play()
                     running = False
                     ninja_movement = 0
                     ninja_movement -= 7
@@ -316,24 +332,24 @@ while True:
 
 
 
+
+    background_x -= 0.5 * game_speed
+    background_scroll()
+    if background_x <= -1080:
+         background_x = 0
+    floor_x -= 3 * game_speed
+    floor_scroll()
+    if floor_x <= -1080:
+        floor_x = 0
     if not game_over:
         if current_score >= 50:
             game_speed = 1.25
         if current_score >= 100:
-            game_speed = 1.5
+             game_speed = 1.5
         if current_score >= 150:
             game_speed = 1.75
         if current_score >= 200:
-            game_speed = 2
-        background_x -= 0.5 * game_speed
-        background_scroll()
-        if background_x <= -1080:
-            background_x = 0
-        floor_x -= 3 * game_speed
-        floor_scroll()
-        if floor_x <= -1080:
-            floor_x = 0
-
+             game_speed = 2
         ninja_movement += gravity
 
         ninja_rectangle.centery += ninja_movement
@@ -345,11 +361,11 @@ while True:
         ninja_jump_index = get_ninja_jump_index()
         ninja, ninja_rectangle = ninja_animation()
         screen.blit(ninja, ninja_rectangle)
-        #game_over = collision_check_dummies(dummy_list)
-        #if not game_over:
-            #game_over = collision_check_chains(chain_list)
-        #if not game_over:
-            #game_over = collision_check_birds(bird_list)
+        game_over = collision_check_dummies(dummy_list)
+        if not game_over:
+            game_over = collision_check_chains(chain_list)
+        if not game_over:
+            game_over = collision_check_birds(bird_list)
         coin_list, coins = collision_coins(coin_list, coins)
 
         current_score = score(dummy_list, bird_list, chain_list)
@@ -406,6 +422,9 @@ while True:
         if current_score > hi_score:
             hi_score = current_score
             save_hi_score(hi_score)
+        show_score()
         display_hi_score()
+        display_game_over()
+        clock.tick(60)
         py.display.update()
 
